@@ -13,7 +13,7 @@ app.use(express.json());
 app.use(express.static('public'));
 
 // MongoDB Connection
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/vasanthi-foods';
+const MONGODB_URI = process.env.MONGODB_URI || 'mongodb+srv://vasanthi:vasanthi123@vasanthifoods.th0oq6y.mongodb.net/vasanthi-foods?retryWrites=true&w=majority';
 
 // Clean the URI - remove any whitespace
 const cleanURI = MONGODB_URI.trim();
