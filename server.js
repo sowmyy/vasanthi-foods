@@ -1,3 +1,4 @@
+require('dotenv').config();
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
@@ -13,19 +14,28 @@ app.use(express.static('public'));
 
 // MongoDB Connection
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/vasanthi-foods';
-console.log('MONGODB_URI:', MONGODB_URI);
-mongoose.connect(MONGODB_URI, {
-  useNewUrlParser: true,
-  useUnifiedTopology: true,
-  useCreateIndex: true,
-  useFindAndModify: false
-});
+
+// Clean the URI - remove any whitespace
+const cleanURI = MONGODB_URI.trim();
+console.log('Connecting to MongoDB...');
+console.log('URI (first 40 chars):', cleanURI.substring(0, 40) + '...');
+
+mongoose.connect(cleanURI)
+  .then(() => {
+    console.log('✓ Successfully connected to MongoDB');
+    initializeAdmin();
+  })
+  .catch(err => {
+    console.error('✗ MongoDB connection failed:', err.message);
+    process.exit(1);
+  });
 
 const db = mongoose.connection;
-db.on('error', console.error.bind(console, 'MongoDB connection error:'));
-db.once('open', () => {
-  console.log('Connected to MongoDB');
-  initializeAdmin();
+db.on('error', (err) => {
+  console.error('MongoDB error:', err);
+});
+db.on('disconnected', () => {
+  console.log('MongoDB disconnected');
 });
 
 // Schemas
@@ -108,7 +118,9 @@ async function initializeAdmin() {
         name: 'Admin',
         role: 'admin'
       });
-      console.log('Default admin created: admin@vasanthifoods.com / admin123');
+      console.log('✓ Default admin created: admin@vasanthifoods.com / admin123');
+    } else {
+      console.log('✓ Admin account already exists');
     }
   } catch (error) {
     console.error('Error initializing admin:', error);
@@ -303,7 +315,7 @@ app.post('/api/coupons/validate', authenticateToken, async (req, res) => {
 
     if (orderTotal < coupon.minOrder) {
       return res.status(400).json({ 
-        error: `Minimum order value of ₹${coupon.minOrder} required` 
+        error: 'Minimum order value of ₹' + coupon.minOrder + ' required' 
       });
     }
 
@@ -367,7 +379,7 @@ app.post('/api/orders', authenticateToken, async (req, res) => {
     for (const item of items) {
       const menuItem = await MenuItem.findById(item.menuItemId);
       if (!menuItem || !menuItem.available) {
-        return res.status(400).json({ error: `Item ${item.name} is not available` });
+        return res.status(400).json({ error: 'Item ' + item.name + ' is not available' });
       }
       
       subtotal += menuItem.price * item.quantity;
@@ -541,5 +553,5 @@ app.get('/api/stats', authenticateToken, isAdmin, async (req, res) => {
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+  console.log('✓ Server running on port ' + PORT);
 });
