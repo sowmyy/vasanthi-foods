@@ -15,12 +15,60 @@ app.use(express.static('public'));
 // MongoDB Connection
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb+srv://vasanthi:vasanthi123@vasanthifoods.th0oq6y.mongodb.net/vasanthi-foods?retryWrites=true&w=majority';
 
-// Clean the URI - remove any whitespace
-const cleanURI = MONGODB_URI.trim();
+function encodeCredentialPart(value) {
+  try {
+    return encodeURIComponent(decodeURIComponent(value));
+  } catch (err) {
+    return encodeURIComponent(value);
+  }
+}
+
+function sanitizeMongoUri(uri) {
+  const trimmed = String(uri || '').trim().replace(/^['"]|['"]$/g, '');
+
+  // If URL parsing succeeds, trust the value as-is.
+  try {
+    // eslint-disable-next-line no-new
+    new URL(trimmed);
+    return trimmed;
+  } catch (err) {
+    // Continue and attempt credential sanitization below.
+  }
+
+  const protocolMatch = trimmed.match(/^(mongodb(?:\+srv)?:\/\/)(.*)$/);
+  if (!protocolMatch) {
+    return trimmed;
+  }
+
+  const [, protocol, remainder] = protocolMatch;
+  const atIndex = remainder.lastIndexOf('@');
+  if (atIndex === -1) {
+    return trimmed;
+  }
+
+  const credentials = remainder.slice(0, atIndex);
+  const rest = remainder.slice(atIndex + 1);
+  const colonIndex = credentials.indexOf(':');
+  if (colonIndex === -1) {
+    return trimmed;
+  }
+
+  const username = credentials.slice(0, colonIndex);
+  const password = credentials.slice(colonIndex + 1);
+
+  const encodedUsername = encodeCredentialPart(username);
+  const encodedPassword = encodeCredentialPart(password);
+  return `${protocol}${encodedUsername}:${encodedPassword}@${rest}`;
+}
+
+const cleanURI = sanitizeMongoUri(MONGODB_URI);
 console.log('Connecting to MongoDB...');
 console.log('URI (first 40 chars):', cleanURI.substring(0, 40) + '...');
 
-mongoose.connect(cleanURI)
+mongoose.connect(cleanURI, {
+  useNewUrlParser: true,
+  useUnifiedTopology: true
+})
   .then(() => {
     console.log('✓ Successfully connected to MongoDB');
     initializeAdmin();
